@@ -7,4 +7,4 @@ h2{margin:0 0 10px;font-weight:300;font-size:22px;letter-spacing:.14em;color:var
 @media(max-width:560px){.cols{grid-template-columns:1fr;gap:48px}}
 a{color:var(--t3);text-decoration:none;font-weight:400;font-size:13px;letter-spacing:.06em;transition:color .2s}
 a:hover,a:focus-visible{color:var(--amber);outline:none}
-.jl{position:fixed;top:max(16px,env(safe-area-inset-top));left:20px;padding:4px 0;z-index:10}
+.jl{display:flex;gap:18px;position:fixed;top:max(16px,env(safe-area-inset-top));left:20px;padding:4px 0;z-index:10}
