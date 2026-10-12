@@ -11,8 +11,9 @@ collections:
     output: false
 
 # GitHub Pages would otherwise turn every .md file into an .html page, which
-# would overwrite raven/0_architecture.html with its .md source (that page
-# fetches the raw .md, so it must stay a plain file).
+# would overwrite raven/0_architecture.html and geminus/architecture.html with
+# their .md sources (those pages
+# fetch the raw .md, so it must stay a plain file).
 require_front_matter: true
 
 exclude:

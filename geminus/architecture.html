@@ -1,0 +1,149 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+<title>Geminus – System Architecture</title>
+<script>try{document.documentElement.dataset.theme=localStorage.getItem('raven-theme')||'dark'}catch(e){document.documentElement.dataset.theme='dark'}</script>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Space+Grotesk:wght@300;400&display=swap" rel="stylesheet">
+<link rel="stylesheet" href="../style/base.css">
+<link rel="stylesheet" href="../style/0_architecture.css">
+</head>
+<body>
+<button id="tm" aria-label="Toggle light and dark mode">Light</button>
+<main>
+<h1>GEMINUS</h1>
+<p class="subt">System Architecture</p>
+<div class="bar">
+<span style="--c:var(--ed)"><i></i>Signal</span>
+<span style="--c:var(--ep)"><i style="border-top-style:dashed"></i>Power</span>
+<span style="--c:var(--eh)"><i style="border-top-style:dotted"></i>Physical</span>
+</div>
+<div class="wrap"><svg id="d" viewBox="0 0 960 610" role="img" aria-label="Geminus system architecture diagram">
+<defs>
+<marker id="ms" viewBox="0 0 10 10" refX="9" refY="5" markerWidth="7" markerHeight="7" orient="auto"><path d="M0 0L10 5L0 10z" fill="var(--ed)"/></marker>
+<marker id="mp" viewBox="0 0 10 10" refX="9" refY="5" markerWidth="7" markerHeight="7" orient="auto"><path d="M0 0L10 5L0 10z" fill="var(--ep)"/></marker>
+<marker id="mh" viewBox="0 0 10 10" refX="9" refY="5" markerWidth="7" markerHeight="7" orient="auto"><path d="M0 0L10 5L0 10z" fill="var(--eh)"/></marker>
+</defs>
+<g id="L"></g>
+</svg></div>
+<div id="info"></div>
+<nav><a href="../index.html">Home</a><hr><a href="overview.html">Overview</a><a href="architecture.html" aria-current="page">System Architecture</a></nav>
+</main>
+<script>
+/* Content comes from architecture.md. Only the diagram layout lives here:
+   box positions (matched to system titles in the .md) and the arrows between systems.
+   A system in the .md with no LAYOUT entry is drawn in a row under the diagram.
+   Electronics has no box of its own: it is drawn as the two dashed boards (BOARDS)
+   that hold Host Software and Data Acquisition. */
+const LAYOUT={
+di:['Drone Interface',60,160,160,70],
+st:['Structure',20,310,200,84],
+rj:['Rotary Joints',330,316,180,70],
+se:['Sensing',20,480,200,56],
+saf:['Safety',330,160,180,84],
+pwr:['Power System',400,460,170,56],
+hs:['Host Software',650,86,260,112],
+daq:['Data Acquisition',650,336,260,98],
+el:['Electronics']};
+const EXT=[['dut','Drone under test',20,60,200,50],['op','Operator',330,60,180,50]];
+const BOARDS=[['Host PC',620,50,320,200,'host software',72],['DAQ board',620,300,320,180,'DAQ firmware',466]];
+const HOSTS={el:['hs','daq']};
+const E=[
+['dut','di','M150 110L150 160','h','drone geometry\nand mass',156,132],
+['dut','st','M35 110L35 310','h','drone thrust\nand torques',41,132],
+['dut','hs','M120 60L120 20L890 20L890 86','s','drone flight log',340,33],
+['op','di','M330 100L300 100L300 215L220 215','h','adapter\nconfiguration',306,128],
+['op','saf','M420 110L420 160','h','lock/unlock',426,138],
+['op','hs','M510 88L650 88','s','operator\ncommands',520,71],
+['hs','op','M650 104L510 104','s','metrics,\nCSV export',520,118],
+['hs','di','M860 86L860 40L270 40L270 175L220 175','s','live angle readout',340,54],
+['di','st','M90 230L90 310','h','rigid attachment,\nplatform height,\ncounterweights',96,258],
+['saf','st','M330 238L205 238L205 310','h','locked axes',232,252],
+['st','rj','M220 330L330 330','h','fixed frame,\nstage loads',232,305],
+['rj','st','M330 372L220 372','h','axis support,\nfriction torque',232,388],
+['st','se','M120 394L120 480','h','stage rotations',126,440],
+['se','rj','M220 490L360 490L360 386','s','roll, yaw A/B',230,484],
+['rj','se','M380 386L380 505L220 505','p','encoder power',230,519],
+['se','daq','M80 536L80 580L860 580L860 434','s','pitch A/B',430,594],
+['rj','daq','M510 366L650 366','s','routed roll,\nyaw A/B',518,380],
+['saf','hs','M510 180L650 180','s','over-speed\nwarning',520,163],
+['saf','daq','M510 222L600 222L600 340L650 340','h','locked axes',606,285],
+['daq','saf','M650 354L575 354L575 236L510 236','s','gimbal rates',504,290],
+['hs','daq','M760 198L760 336','s','zero\ncommand',766,272],
+['daq','hs','M840 336L840 198','s','angle\nstream',846,272],
+['pwr','rj','M480 460L480 386','p','5 V',486,430],
+['pwr','se','M420 516L420 550L180 550L180 536','p','5 V rig power',250,564],
+['pwr','el','M570 470L620 470','p','5 V',580,464],
+['el','pwr','M940 160L952 160L952 545L540 545L540 516','p','USB 5 V',760,539]];
+const mk={s:'ms',p:'mp',h:'mh',l:'mh'},cl={s:'ed',p:'ep',h:'eh',l:'eh'};
+const esc=s=>String(s).replace(/[&<>"]/g,c=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;'}[c]));
+const norm=s=>s.toLowerCase().replace(/&/g,'and').replace(/[^a-z0-9]/g,'');
+const ITEM=/^\s*(?:\d+[.)]|[-*+])\s+/;
+
+/* A system is any non-list line followed by a list. List items are subsystems;
+   items starting with ← (or <-) are inputs, → (or ->) are outputs. */
+function parse(md){
+const L=md.replace(/\r/g,'').split('\n'),out=[];let cur=null,sub=null;
+L.forEach((raw,i)=>{const l=raw.trim();if(!l)return;
+if(ITEM.test(raw)){if(!cur)return;const c=raw.replace(ITEM,'').trim(),m=c.match(/^(←|<-|→|->)\s*(.*)$/);
+if(m){if(sub)sub[m[1]=='←'||m[1]=='<-'?'in':'out'].push(m[2].trim())}
+else{sub={name:c,in:[],out:[]};cur.subs.push(sub)}return}
+let j=i+1;while(j<L.length&&!L[j].trim())j++;
+if(j<L.length&&ITEM.test(L[j])){cur={title:l.replace(/^#+\s*/,'').replace(/\*\*|__/g,'').trim(),subs:[]};out.push(cur)}else cur=null;sub=null});
+return out}
+
+const svg=document.getElementById('d'),info=document.getElementById('info');
+const hint='Select a system';
+let N={},D={},T={},EE=[];
+
+function build(systems){
+N={};D={};T={};const used=new Set(),extra=[];
+systems.forEach(s=>{
+const hit=Object.entries(LAYOUT).find(([k,v])=>!used.has(k)&&norm(v[0])==norm(s.title));
+const k=hit?hit[0]:'x'+extra.length;used.add(k);
+T[k]=s.title;D[k]=s.subs.map(r=>[r.name,r.in.join(', ')||'—',r.out.join(', ')||'—']);
+if(k=='el')return;
+const labels=s.subs.map(r=>r.name.replace(/\s*\([^)]*\)\s*$/,''));
+const need=42+labels.length*14;
+if(hit){const[,x,y,w,h]=hit[1];N[k]=[s.title,x,y,w,Math.max(h,need),labels]}
+else{N[k]=[s.title,0,0,190,Math.max(90,need),labels];extra.push(k)}});
+let vbH=610;
+for(let r=0;r*4<extra.length;r++){const row=extra.slice(r*4,r*4+4),y=vbH+10,rh=Math.max(...row.map(k=>N[k][4]));
+row.forEach((k,c)=>{N[k][1]=20+c*235;N[k][2]=y});vbH=y+rh+20}
+svg.setAttribute('viewBox',`0 0 960 ${vbH}`);
+const has=k=>EXT.some(x=>x[0]==k)||k=='el'||N[k];
+EE=E.filter(e=>has(e[0])&&has(e[1]));
+const elOK=!!D.el;
+let h='';
+BOARDS.forEach(([t,x,y,w,hh,sw,ty])=>{h+=`<rect class="av board" x="${x}" y="${y}" width="${w}" height="${hh}" rx="16"/><text class="t" x="${x+14}" y="${ty}" style="fill:var(--mute)">${esc(t.toUpperCase())}</text><text class="s" x="${x+100}" y="${ty}">hosts ${esc(sw)}</text>`});
+EXT.forEach(([k,t,x,y,w,hh])=>{h+=`<g class="n" data-k="${k}"><rect class="ext" x="${x}" y="${y}" width="${w}" height="${hh}" rx="10"/><text class="t" x="${x+12}" y="${y+22}">${esc(t)}</text><text class="s" x="${x+12}" y="${y+37}">external</text></g>`});
+EE.forEach((e,i)=>{const lab=(e[4]||'').split('\n').map((t,j)=>`<tspan x="${e[5]}" dy="${j?11:0}">${esc(t)}</tspan>`).join('');
+h+=`<g class="eg ${e[3]=='l'?'lg':''}" data-i="${i}"><path class="e" d="${e[2]}" style="stroke:var(--${cl[e[3]]})${e[3]=='p'?';stroke-dasharray:7 4':e[3]=='h'||e[3]=='l'?';stroke-dasharray:2 4':''}" marker-end="url(#${mk[e[3]]})"/>${e[4]?`<text class="el" x="${e[5]}" y="${e[6]}">${lab}</text>`:''}</g>`});
+Object.entries(N).forEach(([k,[t,x,y,w,hh,subs]])=>{h+=`<g class="n" data-k="${k}"><rect class="b" x="${x}" y="${y}" width="${w}" height="${hh}" rx="10" /><text class="t" x="${x+14}" y="${y+22}">${esc(t)}</text>${subs.map((s,i)=>`<text class="s" x="${x+14}" y="${y+40+i*14}">${esc(s)}</text>`).join('')}</g>`});
+document.getElementById('L').innerHTML=h;
+svg.querySelectorAll('.n').forEach(n=>{if(D[n.dataset.k])n.onclick=ev=>{ev.stopPropagation();pick(n.dataset.k)}});
+svg.querySelectorAll('rect.board').forEach(b=>{if(elOK)b.onclick=ev=>{ev.stopPropagation();pick('el')};else b.style.cursor='default'});
+info.textContent=hint}
+
+function reset(){svg.querySelectorAll('.n,.eg').forEach(e=>e.classList.remove('dim','sel'));svg.querySelectorAll('rect.board').forEach(b=>b.classList.remove('sel'));info.textContent=hint}
+function pick(k){svg.querySelectorAll('.n').forEach(n=>n.classList.toggle('sel',n.dataset.k==k));svg.querySelectorAll('rect.board').forEach(b=>b.classList.toggle('sel',k=='el'));
+const touches=e=>e[0]==k||e[1]==k;
+svg.querySelectorAll('.eg').forEach(g=>g.classList.toggle('dim',!touches(EE[g.dataset.i])));
+const keep=new Set([k,...(HOSTS[k]||[])]);EE.forEach(e=>{if(touches(e)){keep.add(e[0]);keep.add(e[1])}});
+svg.querySelectorAll('.n').forEach(n=>n.classList.toggle('dim',!keep.has(n.dataset.k)));
+info.innerHTML=`<h3>${esc(T[k])}</h3>`+D[k].map(r=>`<div class="row"><b>${esc(r[0])}</b><div class="in">← ${esc(r[1])}</div><div class="out">→ ${esc(r[2])}</div></div>`).join('')}
+svg.onclick=reset;
+
+info.textContent='Loading architecture.md';
+fetch('architecture.md',{cache:'no-cache'}).then(r=>{if(!r.ok)throw new Error('HTTP '+r.status);return r.text()})
+.then(md=>{const s=parse(md);if(!s.length)throw new Error('no systems found');build(s)})
+.catch(err=>{info.innerHTML=`Couldn't load architecture.md (${esc(err.message)}). Keep it in the same folder as this page. If you opened the page straight from disk, serve the folder instead, e.g. <code>python -m http.server</code> in docs/.`});
+</script>
+<script>
+(function(){var b=document.getElementById('tm'),r=document.documentElement;function s(){b.textContent=r.dataset.theme=='light'?'Dark':'Light'}s();b.onclick=function(){var t=r.dataset.theme=='light'?'dark':'light';r.dataset.theme=t;try{localStorage.setItem('raven-theme',t)}catch(e){}s()}})();
+</script>
+</body>
+</html>
