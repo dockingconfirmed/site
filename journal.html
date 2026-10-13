@@ -30,11 +30,11 @@ layout: null
 <input id="ns" type="text" placeholder="Signature (optional)" autocomplete="name">
 <div id="nkw">
 <input id="nk" type="password" placeholder="GitHub token" autocomplete="off" spellcheck="false">
-<p class="hint">Posting needs a GitHub token, saved in this browser only. <a href="https://github.com/settings/personal-access-tokens/new" target="_blank" rel="noopener">Make a fine-grained token</a> with resource owner <b>dockingconfirmed</b>, access to only the <b>site</b> repository, and <b>Contents: Read and write</b>.</p>
+<p class="hint">Posting and editing need a GitHub token, saved in this browser only. <a href="https://github.com/settings/personal-access-tokens/new" target="_blank" rel="noopener">Make a fine-grained token</a> with resource owner <b>dockingconfirmed</b>, access to only the <b>site</b> repository, and <b>Contents: Read and write</b>.</p>
 </div>
 <div class="row"><button type="submit">Post</button><button type="button" id="nd">Discard draft</button><button type="button" id="nkf" hidden>Forget token</button></div>
 <p class="hint" id="nm" role="status"></p>
-<p class="hint">Entries show up here about a minute after posting.<br>If you edit an entry directly on GitHub, avoid <code>&#123;&#123;</code> and <code>&#123;%</code> in the text and keep titles in quotes. You don't need to worry about either here.</p>
+<p class="hint">New entries and edits show up here about a minute after saving.<br>If you edit an entry directly on GitHub, avoid <code>&#123;&#123;</code> and <code>&#123;%</code> in the text and keep titles in quotes. You don't need to worry about either here.</p>
 </form>
 </details>
 
@@ -42,7 +42,7 @@ layout: null
 {% assign entries = site.journal | sort: "modified" | reverse %}
 {% for e in entries %}
 {% assign auto = e.slug | replace: "-", " " | capitalize %}
-<article>
+<article data-path="{{ e.relative_path }}">
 <header>
 <time datetime="{{ e.modified | date_to_xmlschema }}">{{ e.modified | date: "%b %-d, %Y · %H:%M" }}</time>
 <a class="ed" href="https://github.com/dockingconfirmed/site/edit/main/{{ e.relative_path }}">Edit</a>
@@ -104,20 +104,19 @@ lb.addEventListener('keydown',function(e){if(e.key=='ArrowLeft')L.go(L.at()-1);e
 
 (function(){
 var $=function(id){return document.getElementById(id)},
-f=$('nf'),t=$('nt'),c=$('nc'),s=$('ns'),k=$('nk'),kw=$('nkw'),kf=$('nkf'),m=$('nm'),ni=$('ni'),nia=$('nia'),nif=$('nif'),sb=f.querySelector('[type=submit]'),
+f=$('nf'),dt=f.parentNode,t=$('nt'),c=$('nc'),s=$('ns'),k=$('nk'),kw=$('nkw'),kf=$('nkf'),m=$('nm'),ni=$('ni'),nia=$('nia'),nif=$('nif'),nd=$('nd'),sb=f.querySelector('[type=submit]'),
 K='journal-draft',KS='journal-sig',KT='journal-token',
-API='https://api.github.com/repos/dockingconfirmed/site',imgs=[],tok='';
+API='https://api.github.com/repos/dockingconfirmed/site',imgs=[],tok='',ed=null;
 function get(key){try{return localStorage.getItem(key)}catch(e){return null}}
 function set(key,v){try{if(v==null)localStorage.removeItem(key);else localStorage.setItem(key,v)}catch(e){}}
 function msg(x){m.textContent=x||''}
 function p(n){return String(n).padStart(2,'0')}
 
-try{var d=JSON.parse(get(K)||'null');if(d){t.value=d.t||'';c.value=d.c||'';if(d.t||d.c)f.parentNode.open=true}}catch(e){}
-function save(){set(K,JSON.stringify({t:t.value,c:c.value}))}
-t.oninput=c.oninput=save;
-// The signature is kept across entries, so discarding a draft leaves it alone.
-s.value=get(KS)||'';
-s.oninput=function(){set(KS,s.value)};
+// While an entry is being edited, the new-entry draft and remembered signature are left untouched.
+function loadDraft(){var d=null;try{d=JSON.parse(get(K)||'null')}catch(e){}t.value=d&&d.t||'';c.value=d&&d.c||'';s.value=get(KS)||'';return d&&(d.t||d.c)}
+if(loadDraft())dt.open=true;
+t.oninput=c.oninput=function(){if(!ed)set(K,JSON.stringify({t:t.value,c:c.value}))};
+s.oninput=function(){if(!ed)set(KS,s.value)};
 function tokUI(){var has=!!get(KT);kw.hidden=has;kf.hidden=!has}
 tokUI();
 kf.onclick=function(){if(confirm('Forget the GitHub token saved in this browser?')){set(KT,null);tokUI()}};
@@ -133,13 +132,15 @@ function enc(type,q){return new Promise(function(ok){cv.toBlob(ok,type,q)})}
 return enc('image/webp',.82).then(function(o){return o&&o.type=='image/webp'?o:enc('image/jpeg',.85)});
 });
 }
+// Each image is either new ({blob,url}) or already in the repo ({path,url}).
+function drop(im){if(im.blob)URL.revokeObjectURL(im.url)}
 function thumbs(){
 ni.querySelectorAll('.th').forEach(function(e){e.remove()});
 imgs.forEach(function(im,i){
 var d=document.createElement('div');d.className='th';
 d.innerHTML='<img alt=""><button type="button" aria-label="Remove image">×</button>';
 d.firstChild.src=im.url;
-d.lastChild.onclick=function(){URL.revokeObjectURL(im.url);imgs.splice(i,1);thumbs()};
+d.lastChild.onclick=function(){drop(im);imgs.splice(i,1);thumbs()};
 ni.insertBefore(d,nia);
 });
 nia.hidden=imgs.length>=4;
@@ -153,18 +154,26 @@ try{var b=await shrink(fs[i]);if(imgs.length<4){imgs.push({blob:b,url:URL.create
 catch(e){msg("Couldn't read "+fs[i].name+'. Try a JPEG or PNG.')}
 }
 };
-function clearImgs(){imgs.forEach(function(im){URL.revokeObjectURL(im.url)});imgs=[];thumbs()}
-$('nd').onclick=function(){if(!(t.value||c.value||imgs.length)||confirm('Discard this draft?')){t.value=c.value='';set(K,null);clearImgs();msg()}};
+function clearImgs(){imgs.forEach(drop);imgs=[];thumbs()}
+nd.onclick=function(){
+if(ed){if(!dirty()||confirm('Discard your changes to this entry?'))leave();return}
+if(!(t.value||c.value||imgs.length)||confirm('Discard this draft?')){t.value=c.value='';set(K,null);clearImgs();msg()}
+};
 
 function gh(path,method,body){
-return fetch(API+path,{method:method||'GET',headers:{Authorization:'Bearer '+tok,Accept:'application/vnd.github+json'},body:body&&JSON.stringify(body)})
+var h={Accept:'application/vnd.github+json'};if(tok)h.Authorization='Bearer '+tok;
+return fetch(API+path,{method:method||'GET',headers:h,body:body&&JSON.stringify(body),cache:'no-store'})
 .then(function(r){return r.json().catch(function(){return {}}).then(function(j){if(!r.ok){var e=new Error(j.message||r.statusText);e.status=r.status;throw e}return j})});
 }
 function b64(blob){return new Promise(function(ok,no){var r=new FileReader();r.onload=function(){ok(r.result.slice(r.result.indexOf(',')+1))};r.onerror=no;r.readAsDataURL(blob)})}
+function unb64(x){return new TextDecoder().decode(Uint8Array.from(atob(x.replace(/\s/g,'')),function(ch){return ch.charCodeAt(0)}))}
 function exists(path){return gh('/contents/'+path+'?ref=main').then(function(){return true},function(e){if(e.status==404)return false;throw e})}
-// Everything goes in as one commit through the Git data API.
+// Everything goes in as one commit through the Git data API. Files marked del are removed.
 async function commit(files,message){
-var tree=await Promise.all(files.map(async function(x){var b=await gh('/git/blobs','POST',{content:await b64(x.blob),encoding:'base64'});return {path:x.path,mode:'100644',type:'blob',sha:b.sha}}));
+var tree=await Promise.all(files.map(async function(x){
+if(x.del)return {path:x.path,mode:'100644',type:'blob',sha:null};
+var b=await gh('/git/blobs','POST',{content:await b64(x.blob),encoding:'base64'});return {path:x.path,mode:'100644',type:'blob',sha:b.sha};
+}));
 // If someone else pushes in between, main moves and the update is refused; rebuild on the new head and retry.
 for(var i=0;i<3;i++){
 var head=(await gh('/git/ref/heads/main')).object.sha,base=await gh('/git/commits/'+head),
@@ -175,34 +184,111 @@ try{await gh('/git/refs/heads/main','PATCH',{sha:nc.sha});return}catch(e){if(e.s
 throw new Error('the repository kept changing, try again');
 }
 
-f.onsubmit=async function(ev){
-ev.preventDefault();
-tok=get(KT)||k.value.trim();
-if(!tok){msg('Paste a GitHub token first.');k.focus();return}
-sb.disabled=true;msg('Posting…');
-try{
+// Jekyll would treat Liquid tags in an entry as template code, so they're wrapped to stay literal.
+// (Strings are split so Liquid doesn't see tags in this page either.)
+var L='{',R='}',RAW=L+'% raw %'+R,ENDRAW=L+'% endraw %'+R;
+function build(title,rest,paths,sig,body){
+if(body.indexOf(L+L)>=0||body.indexOf(L+'%')>=0)body=RAW+'\n'+body+'\n'+ENDRAW;
+return '---\n'+(title?'title: '+JSON.stringify(title)+'\n':'')+rest.map(function(l){return l+'\n'}).join('')
++(paths.length?'images: '+JSON.stringify(paths)+'\n':'')+(sig?'signature: '+JSON.stringify(sig)+'\n':'')+'---\n'+body+'\n';
+}
+// Reads back what build() writes, plus the plain YAML someone might type when editing on GitHub.
+// Front matter lines other than title, images and signature are kept as they are.
+function scalar(v){v=v.trim();if(v[0]=='"'){try{return JSON.parse(v)}catch(e){return v.slice(1,-1)}}if(v[0]=="'")return v.slice(1,-1).replace(/''/g,"'");return v}
+function parse(text){
+var r={title:'',rest:[],images:[],sig:'',body:text},mt=/^---\n([\s\S]*?)\n---\n?([\s\S]*)$/.exec(text.replace(/\r\n/g,'\n'));
+if(!mt)return r;
+var ls=mt[1].split('\n');
+for(var i=0;i<ls.length;i++){
+var kv=/^(title|images|signature):\s*(.*)$/.exec(ls[i]);
+if(!kv){if(ls[i].trim())r.rest.push(ls[i]);continue}
+if(kv[1]!='images'){r[kv[1]=='title'?'title':'sig']=scalar(kv[2]);continue}
+if(kv[2].trim()){try{r.images=JSON.parse(kv[2])}catch(e){r.images=kv[2].trim().replace(/^\[|\]$/g,'').split(',').map(scalar).filter(Boolean)}}
+else while(i+1<ls.length&&/^\s*-\s/.test(ls[i+1]))r.images.push(scalar(ls[++i].replace(/^\s*-\s*/,'')));
+}
+var b=mt[2].replace(/\s+$/,'');
+if(b.indexOf(RAW+'\n')==0&&b.slice(-ENDRAW.length)==ENDRAW)b=b.slice(RAW.length+1,-ENDRAW.length).replace(/\n$/,'');
+r.body=b;return r;
+}
+
+// Editing moves the form into the entry, filled from the entry's file on GitHub.
+function snap(){return JSON.stringify([t.value,c.value,s.value,imgs.map(function(im){return im.path||im.url})])}
+function dirty(){return ed&&ed.sha&&snap()!=ed.snap}
+function edit(art){
+if(ed){if(ed.art==art)return;if(dirty()&&!confirm('Discard your changes to the entry you were editing?'))return;leave()}
+var path=art.dataset.path,old=art.querySelector('.saved');if(old)old.remove();
+ed={art:art,path:path,base:path.replace(/^.*\//,'').replace(/\.md$/,''),stash:imgs};
+imgs=[];thumbs();t.value=c.value=s.value='';
+dt.open=false;art.classList.add('editing');art.appendChild(f);
+sb.textContent='Save changes';nd.textContent='Cancel';sb.disabled=true;msg('Loading…');
+var mine=ed;tok=get(KT)||k.value.trim();
+gh('/contents/'+path+'?ref=main').then(function(j){
+if(ed!=mine)return;
+var r=parse(unb64(j.content));
+mine.sha=j.sha;mine.rest=r.rest;mine.images=r.images;
+t.value=r.title;c.value=r.body;s.value=r.sig;
+imgs=r.images.map(function(x){return {path:x,url:x}});thumbs();
+mine.snap=snap();sb.disabled=false;msg();c.focus();
+},function(e){if(ed==mine)msg("Couldn't load this entry from GitHub: "+e.message)});
+}
+function leave(){
+var a=ed.art;clearImgs();imgs=ed.stash;ed=null;
+a.classList.remove('editing');dt.appendChild(f);
+sb.textContent='Post';nd.textContent='Discard draft';sb.disabled=false;
+loadDraft();thumbs();msg();
+return a;
+}
+document.querySelectorAll('article .ed').forEach(function(a){a.addEventListener('click',function(e){
+// Ctrl/Cmd/Shift-click still opens GitHub's editor.
+if(e.ctrlKey||e.metaKey||e.shiftKey||e.button)return;
+e.preventDefault();edit(a.closest('article'));
+})});
+dt.addEventListener('toggle',function(){if(dt.open&&ed){if(dirty()&&!confirm('Discard your changes to this entry?')){dt.open=false;return}leave()}});
+
+async function post(){
 var n=new Date(),o=-n.getTimezoneOffset(),
 day=n.getFullYear()+'-'+p(n.getMonth()+1)+'-'+p(n.getDate()),
 iso=day+'T'+p(n.getHours())+':'+p(n.getMinutes())+':'+p(n.getSeconds())+(o<0?'-':'+')+p(Math.floor(Math.abs(o)/60))+':'+p(Math.abs(o)%60),
 stamp=day+'-'+p(n.getHours())+p(n.getMinutes()),
-title=t.value.trim(),body=c.value.trim(),sig=s.value.trim(),files=[],paths=[];
+title=t.value.trim(),files=[],paths=[];
 if(await exists('_journal/'+stamp+'.md'))stamp+=p(n.getSeconds());
 imgs.forEach(function(im,i){var path='assets/journal/'+stamp+'-'+(i+1)+(im.blob.type=='image/webp'?'.webp':'.jpg');paths.push(path);files.push({path:path,blob:im.blob})});
-// Jekyll would treat Liquid tags in an entry as template code, so mark them literal.
-// (Strings are split so Liquid doesn't see tags in this page either.)
-var L='{',R='}';
-if(body.indexOf(L+L)>=0||body.indexOf(L+'%')>=0)body=L+'% raw %'+R+'\n'+body+'\n'+L+'% endraw %'+R;
-var md='---\n'+(title?'title: '+JSON.stringify(title)+'\n':'')+'modified: '+iso+'\n'
-+(paths.length?'images: '+JSON.stringify(paths)+'\n':'')+(sig?'signature: '+JSON.stringify(sig)+'\n':'')+'---\n'+body+'\n';
-files.push({path:'_journal/'+stamp+'.md',blob:new Blob([md])});
+files.push({path:'_journal/'+stamp+'.md',blob:new Blob([build(title,['modified: '+iso],paths,s.value.trim(),c.value.trim())])});
 await commit(files,'Add journal entry'+(title?': '+title:''));
-set(KT,tok);k.value='';tokUI();
 t.value=c.value='';set(K,null);clearImgs();
 msg('Posted. It shows up here in about a minute.');
+}
+async function save(){
+// Don't overwrite changes someone made on GitHub after this editor was opened.
+if((await gh('/contents/'+ed.path+'?ref=main')).sha!=ed.sha)throw new Error('this entry was changed on GitHub after you opened it. Copy your text somewhere, cancel, and open the editor again');
+var title=t.value.trim(),files=[],paths=[],next=1;
+ed.images.forEach(function(x){var mm=/-(\d+)\.\w+$/.exec(x);if(mm)next=Math.max(next,+mm[1]+1)});
+imgs.forEach(function(im){
+if(im.path){paths.push(im.path);return}
+var path='assets/journal/'+ed.base+'-'+(next++)+(im.blob.type=='image/webp'?'.webp':'.jpg');paths.push(path);files.push({path:path,blob:im.blob});
+});
+// Photos taken out of the entry are deleted too, but only ones this page would have uploaded.
+ed.images.forEach(function(x){if(paths.indexOf(x)<0&&/^assets\/journal\/[^/]+$/.test(x))files.push({path:x,del:true})});
+files.push({path:ed.path,blob:new Blob([build(title,ed.rest,paths,s.value.trim(),c.value.trim())])});
+await commit(files,'Edit journal entry: '+(title||ed.base));
+var a=leave(),note=document.createElement('p');
+note.className='hint saved';note.textContent='Saved. The changes show up here in about a minute.';
+a.querySelector('header').after(note);
+}
+
+f.onsubmit=async function(ev){
+ev.preventDefault();
+tok=get(KT)||k.value.trim();
+if(!tok){msg('Paste a GitHub token first.');k.focus();return}
+var editing=!!ed;
+sb.disabled=true;msg(editing?'Saving…':'Posting…');
+try{
+await (editing?save():post());
+set(KT,tok);k.value='';tokUI();
 }catch(e){
 if(e.status==401){set(KT,null);tokUI();msg('GitHub rejected the token. Paste a valid one and try again.')}
 else if(e.status==403||e.status==404)msg("This token can't write to dockingconfirmed/site. Check that it has access to the site repository with Contents: Read and write.");
-else msg('Posting failed: '+e.message);
+else msg((editing?'Saving':'Posting')+' failed: '+e.message);
 }finally{sb.disabled=false}
 };
 })();

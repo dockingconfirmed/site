@@ -38,6 +38,11 @@ article{margin-top:48px;padding-top:24px;border-top:1px solid var(--line)}
 article header{display:flex;justify-content:space-between;align-items:baseline;gap:16px;font-size:12px;letter-spacing:.06em;color:var(--t4)}
 article h2{margin:6px 0 0;font-weight:400;font-size:17px;letter-spacing:.04em;color:var(--t1)}
 .ed{font-size:12px;color:var(--t4)}
+/* While editing, the form stands in for the entry's body. */
+article.editing>:not(header):not(form){display:none}
+article.editing .ed{visibility:hidden}
+article #nf{margin-top:16px}
+article .saved{margin-top:6px;color:var(--amber)}
 
 .md{margin-top:10px;color:var(--t2);overflow-wrap:anywhere}
 .md>:first-child{margin-top:0}
