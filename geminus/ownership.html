@@ -1,0 +1,45 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Geminus – Ownership</title>
+<script>try{document.documentElement.dataset.theme=localStorage.getItem('raven-theme')||'dark'}catch(e){document.documentElement.dataset.theme='dark'}</script>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Space+Grotesk:wght@300;400&display=swap" rel="stylesheet">
+<link rel="stylesheet" href="../style/base.css">
+<link rel="stylesheet" href="../style/overview.css">
+</head>
+<body>
+<button id="tm" aria-label="Toggle light and dark mode">Light</button>
+<nav><a href="../index.html">Home</a><hr><a href="overview.html">Overview</a><a href="architecture.html">System Architecture</a><a href="ownership.html" aria-current="page">Ownership</a></nav>
+<main>
+<h1>GEMINUS</h1>
+<p>Project Ownership</p>
+
+<p class="g">The owner of a system proposes its design decisions.<br>The other member reviews them and acts as that system's reviewer.</p>
+
+<div class="g">
+<p class="hi">Tom2</p>
+<p>Sensing</p>
+<p>Data Acquisition</p>
+<p>Host Software</p>
+<p>Electronics</p>
+<p>Safety: Over-speed Monitor, Procedures</p>
+</div>
+
+<div class="g">
+<p class="hi">Albert</p>
+<p>Drone Interface</p>
+<p>Structure</p>
+<p>Rotary Joints</p>
+<p>Power System</p>
+<p>Safety: Axis Locks</p>
+</div>
+</main>
+<script>
+(function(){var b=document.getElementById('tm'),r=document.documentElement;function s(){b.textContent=r.dataset.theme=='light'?'Dark':'Light'}s();b.onclick=function(){var t=r.dataset.theme=='light'?'dark':'light';r.dataset.theme=t;try{localStorage.setItem('raven-theme',t)}catch(e){}s()}})();
+</script>
+</body>
+</html>
