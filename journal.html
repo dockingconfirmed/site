@@ -26,8 +26,15 @@ layout: null
 <form id="nf">
 <input id="nt" type="text" placeholder="Title (optional)" autocomplete="off">
 <textarea id="nc" rows="10" placeholder="Write in markdown" required></textarea>
-<div class="row"><button type="submit">Commit on GitHub</button><button type="button" id="nd">Discard draft</button></div>
-<p class="hint">Opens GitHub with the entry filled in. Click <b>Commit changes</b> there, and it shows up here about a minute later.<br>If you edit an entry directly on GitHub, avoid <code>&#123;&#123;</code> and <code>&#123;%</code> in the text and keep titles in quotes. You don't need to worry about either here.</p>
+<div class="imgs" id="ni"><button type="button" class="add" id="nia">Add images (up to 4)</button><input id="nif" type="file" accept="image/*" multiple></div>
+<input id="ns" type="text" placeholder="Signature (optional)" autocomplete="name">
+<div id="nkw">
+<input id="nk" type="password" placeholder="GitHub token" autocomplete="off" spellcheck="false">
+<p class="hint">Posting needs a GitHub token, saved in this browser only. <a href="https://github.com/settings/personal-access-tokens/new" target="_blank" rel="noopener">Make a fine-grained token</a> with resource owner <b>dockingconfirmed</b>, access to only the <b>site</b> repository, and <b>Contents: Read and write</b>.</p>
+</div>
+<div class="row"><button type="submit">Post</button><button type="button" id="nd">Discard draft</button><button type="button" id="nkf" hidden>Forget token</button></div>
+<p class="hint" id="nm" role="status"></p>
+<p class="hint">Entries show up here about a minute after posting.<br>If you edit an entry directly on GitHub, avoid <code>&#123;&#123;</code> and <code>&#123;%</code> in the text and keep titles in quotes. You don't need to worry about either here.</p>
 </form>
 </details>
 
@@ -42,41 +49,161 @@ layout: null
 </header>
 {% if e.title != auto %}<h2>{{ e.title | escape }}</h2>{% endif %}
 <div class="md">{{ e.content }}</div>
+{% if e.signature and e.signature != "" %}<p class="sig">{{ e.signature | escape }}</p>{% endif %}
+{% assign n = e.images | size %}
+{% if n > 0 %}
+<div class="gal">
+<div class="gs">{% for im in e.images %}<img src="{{ im | escape }}" alt="Photo {{ forloop.index }} of {{ n }}" loading="lazy" draggable="false">{% endfor %}</div>
+{% if n > 1 %}<button type="button" class="gp" aria-label="Previous photo" hidden><svg viewBox="0 0 24 24" width="18" height="18" aria-hidden="true"><path d="M15 5l-7 7 7 7" fill="none" stroke="currentColor" stroke-width="2"/></svg></button><button type="button" class="gn" aria-label="Next photo"><svg viewBox="0 0 24 24" width="18" height="18" aria-hidden="true"><path d="M9 5l7 7-7 7" fill="none" stroke="currentColor" stroke-width="2"/></svg></button><span class="gc">1 / {{ n }}</span>{% endif %}
+</div>
+{% endif %}
 </article>
 {% else %}
 <p class="sub">No entries yet.</p>
 {% endfor %}
 </main>
+<dialog id="lb" aria-label="Photo viewer">
+<div class="gs"></div>
+<button type="button" class="gp" aria-label="Previous photo" hidden><svg viewBox="0 0 24 24" width="20" height="20" aria-hidden="true"><path d="M15 5l-7 7 7 7" fill="none" stroke="currentColor" stroke-width="2"/></svg></button><button type="button" class="gn" aria-label="Next photo" hidden><svg viewBox="0 0 24 24" width="20" height="20" aria-hidden="true"><path d="M9 5l7 7-7 7" fill="none" stroke="currentColor" stroke-width="2"/></svg></button><span class="gc" hidden></span>
+<button type="button" class="gx" aria-label="Close"><svg viewBox="0 0 24 24" width="18" height="18" aria-hidden="true"><path d="M6 6l12 12M18 6L6 18" fill="none" stroke="currentColor" stroke-width="2"/></svg></button>
+</dialog>
 <script>
 (function(){var b=document.getElementById('tm'),r=document.documentElement;function s(){b.textContent=r.dataset.theme=='light'?'Dark':'Light'}s();b.onclick=function(){var t=r.dataset.theme=='light'?'dark':'light';r.dataset.theme=t;try{localStorage.setItem('raven-theme',t)}catch(e){}s()}})();
 
+// Photo strips: native scroll-snap handles touch and trackpad swipes; arrows and mouse drags step one photo at a time.
+function strip(root){
+var s=root.querySelector('.gs'),pv=root.querySelector('.gp'),nx=root.querySelector('.gn'),ct=root.querySelector('.gc'),x0=null,l0=0,moved=0;
+function at(){return Math.round(s.scrollLeft/s.clientWidth)||0}
+function go(i){i=Math.max(0,Math.min(s.children.length-1,i));s.scrollTo({left:i*s.clientWidth,behavior:'smooth'})}
+function upd(){var n=s.children.length,i=at();if(ct){ct.textContent=(i+1)+' / '+n;ct.hidden=n<2}if(pv){pv.hidden=n<2||i<=0;nx.hidden=n<2||i>=n-1}}
+s.addEventListener('scroll',upd,{passive:true});
+if(pv){pv.onclick=function(){go(at()-1)};nx.onclick=function(){go(at()+1)}}
+s.addEventListener('pointerdown',function(e){moved=0;if(e.pointerType!='mouse'||e.button||s.children.length<2)return;x0=e.clientX;l0=s.scrollLeft});
+addEventListener('pointermove',function(e){if(x0==null)return;var dx=e.clientX-x0;if(!moved&&Math.abs(dx)>5){moved=1;s.classList.add('dr')}if(moved)s.scrollLeft=l0-dx});
+addEventListener('pointerup',function(e){if(x0==null)return;var dx=e.clientX-x0,i=Math.round(l0/s.clientWidth);x0=null;if(!moved)return;s.classList.remove('dr');go(i+(dx<-40?1:dx>40?-1:0))});
+// A drag shouldn't also count as a click that opens the viewer.
+s.addEventListener('click',function(e){if(moved){e.stopPropagation();e.preventDefault();moved=0}},true);
+return {s:s,at:at,go:go,upd:upd};
+}
+
 (function(){
-var f=document.getElementById('nf'),t=document.getElementById('nt'),c=document.getElementById('nc'),K='journal-draft';
-try{var d=JSON.parse(localStorage.getItem(K)||'null');if(d){t.value=d.t||'';c.value=d.c||'';if(d.t||d.c)f.parentNode.open=true}}catch(e){}
-function save(){try{localStorage.setItem(K,JSON.stringify({t:t.value,c:c.value}))}catch(e){}}
-t.oninput=c.oninput=save;
-document.getElementById('nd').onclick=function(){if(!(t.value||c.value)||confirm('Discard this draft?')){t.value=c.value='';try{localStorage.removeItem(K)}catch(e){}}};
+var lb=document.getElementById('lb'),L=strip(lb);
+function open(g,i){
+L.s.innerHTML='';
+g.querySelectorAll('.gs img').forEach(function(im){var d=document.createElement('div'),x=document.createElement('img');x.src=im.currentSrc||im.src;x.alt=im.alt;x.draggable=false;d.appendChild(x);L.s.appendChild(d)});
+lb.showModal();L.s.scrollLeft=i*L.s.clientWidth;L.upd();
+}
+document.querySelectorAll('article .gal').forEach(function(g){
+strip(g).upd();
+g.querySelector('.gs').addEventListener('click',function(e){var im=e.target;if(im.tagName=='IMG')open(g,[].indexOf.call(im.parentNode.children,im))});
+});
+// Clicking anywhere but the photo or a button closes the viewer.
+lb.addEventListener('click',function(e){var x=e.target;if(x==lb||x==L.s||x.parentNode==L.s||x.closest('.gx'))lb.close()});
+lb.addEventListener('keydown',function(e){if(e.key=='ArrowLeft')L.go(L.at()-1);else if(e.key=='ArrowRight')L.go(L.at()+1);else return;e.preventDefault()});
+})();
+
+(function(){
+var $=function(id){return document.getElementById(id)},
+f=$('nf'),t=$('nt'),c=$('nc'),s=$('ns'),k=$('nk'),kw=$('nkw'),kf=$('nkf'),m=$('nm'),ni=$('ni'),nia=$('nia'),nif=$('nif'),sb=f.querySelector('[type=submit]'),
+K='journal-draft',KS='journal-sig',KT='journal-token',
+API='https://api.github.com/repos/dockingconfirmed/site',imgs=[],tok='';
+function get(key){try{return localStorage.getItem(key)}catch(e){return null}}
+function set(key,v){try{if(v==null)localStorage.removeItem(key);else localStorage.setItem(key,v)}catch(e){}}
+function msg(x){m.textContent=x||''}
 function p(n){return String(n).padStart(2,'0')}
-f.onsubmit=function(ev){
+
+try{var d=JSON.parse(get(K)||'null');if(d){t.value=d.t||'';c.value=d.c||'';if(d.t||d.c)f.parentNode.open=true}}catch(e){}
+function save(){set(K,JSON.stringify({t:t.value,c:c.value}))}
+t.oninput=c.oninput=save;
+// The signature is kept across entries, so discarding a draft leaves it alone.
+s.value=get(KS)||'';
+s.oninput=function(){set(KS,s.value)};
+function tokUI(){var has=!!get(KT);kw.hidden=has;kf.hidden=!has}
+tokUI();
+kf.onclick=function(){if(confirm('Forget the GitHub token saved in this browser?')){set(KT,null);tokUI()}};
+
+// Photos are shrunk before upload so the repo stays small.
+function shrink(file){
+return createImageBitmap(file).then(function(b){
+var r=Math.min(1,1600/Math.max(b.width,b.height)),cv=document.createElement('canvas');
+cv.width=Math.round(b.width*r);cv.height=Math.round(b.height*r);
+cv.getContext('2d').drawImage(b,0,0,cv.width,cv.height);if(b.close)b.close();
+function enc(type,q){return new Promise(function(ok){cv.toBlob(ok,type,q)})}
+// Safari can't encode WebP and quietly returns a PNG, so fall back to JPEG there.
+return enc('image/webp',.82).then(function(o){return o&&o.type=='image/webp'?o:enc('image/jpeg',.85)});
+});
+}
+function thumbs(){
+ni.querySelectorAll('.th').forEach(function(e){e.remove()});
+imgs.forEach(function(im,i){
+var d=document.createElement('div');d.className='th';
+d.innerHTML='<img alt=""><button type="button" aria-label="Remove image">×</button>';
+d.firstChild.src=im.url;
+d.lastChild.onclick=function(){URL.revokeObjectURL(im.url);imgs.splice(i,1);thumbs()};
+ni.insertBefore(d,nia);
+});
+nia.hidden=imgs.length>=4;
+}
+nia.onclick=function(){nif.click()};
+nif.onchange=async function(){
+var fs=[].slice.call(nif.files);nif.value='';msg();
+if(fs.length>4-imgs.length){msg('Only 4 images per entry; the extra ones were skipped.');fs=fs.slice(0,4-imgs.length)}
+for(var i=0;i<fs.length;i++){
+try{var b=await shrink(fs[i]);if(imgs.length<4){imgs.push({blob:b,url:URL.createObjectURL(b)});thumbs()}}
+catch(e){msg("Couldn't read "+fs[i].name+'. Try a JPEG or PNG.')}
+}
+};
+function clearImgs(){imgs.forEach(function(im){URL.revokeObjectURL(im.url)});imgs=[];thumbs()}
+$('nd').onclick=function(){if(!(t.value||c.value||imgs.length)||confirm('Discard this draft?')){t.value=c.value='';set(K,null);clearImgs();msg()}};
+
+function gh(path,method,body){
+return fetch(API+path,{method:method||'GET',headers:{Authorization:'Bearer '+tok,Accept:'application/vnd.github+json'},body:body&&JSON.stringify(body)})
+.then(function(r){return r.json().catch(function(){return {}}).then(function(j){if(!r.ok){var e=new Error(j.message||r.statusText);e.status=r.status;throw e}return j})});
+}
+function b64(blob){return new Promise(function(ok,no){var r=new FileReader();r.onload=function(){ok(r.result.slice(r.result.indexOf(',')+1))};r.onerror=no;r.readAsDataURL(blob)})}
+function exists(path){return gh('/contents/'+path+'?ref=main').then(function(){return true},function(e){if(e.status==404)return false;throw e})}
+// Everything goes in as one commit through the Git data API.
+async function commit(files,message){
+var tree=await Promise.all(files.map(async function(x){var b=await gh('/git/blobs','POST',{content:await b64(x.blob),encoding:'base64'});return {path:x.path,mode:'100644',type:'blob',sha:b.sha}}));
+// If someone else pushes in between, main moves and the update is refused; rebuild on the new head and retry.
+for(var i=0;i<3;i++){
+var head=(await gh('/git/ref/heads/main')).object.sha,base=await gh('/git/commits/'+head),
+nt=await gh('/git/trees','POST',{base_tree:base.tree.sha,tree:tree}),
+nc=await gh('/git/commits','POST',{message:message,tree:nt.sha,parents:[head]});
+try{await gh('/git/refs/heads/main','PATCH',{sha:nc.sha});return}catch(e){if(e.status!=422)throw e}
+}
+throw new Error('the repository kept changing, try again');
+}
+
+f.onsubmit=async function(ev){
 ev.preventDefault();
+tok=get(KT)||k.value.trim();
+if(!tok){msg('Paste a GitHub token first.');k.focus();return}
+sb.disabled=true;msg('Posting…');
+try{
 var n=new Date(),o=-n.getTimezoneOffset(),
 day=n.getFullYear()+'-'+p(n.getMonth()+1)+'-'+p(n.getDate()),
 iso=day+'T'+p(n.getHours())+':'+p(n.getMinutes())+':'+p(n.getSeconds())+(o<0?'-':'+')+p(Math.floor(Math.abs(o)/60))+':'+p(Math.abs(o)%60),
-title=t.value.trim(),body=c.value.trim();
+stamp=day+'-'+p(n.getHours())+p(n.getMinutes()),
+title=t.value.trim(),body=c.value.trim(),sig=s.value.trim(),files=[],paths=[];
+if(await exists('_journal/'+stamp+'.md'))stamp+=p(n.getSeconds());
+imgs.forEach(function(im,i){var path='assets/journal/'+stamp+'-'+(i+1)+(im.blob.type=='image/webp'?'.webp':'.jpg');paths.push(path);files.push({path:path,blob:im.blob})});
 // Jekyll would treat Liquid tags in an entry as template code, so mark them literal.
 // (Strings are split so Liquid doesn't see tags in this page either.)
 var L='{',R='}';
 if(body.indexOf(L+L)>=0||body.indexOf(L+'%')>=0)body=L+'% raw %'+R+'\n'+body+'\n'+L+'% endraw %'+R;
-var md='---\n'+(title?'title: '+JSON.stringify(title)+'\n':'')+'modified: '+iso+'\n---\n'+body+'\n',
-base='https://github.com/dockingconfirmed/site/new/main/_journal?filename='+day+'-'+p(n.getHours())+p(n.getMinutes())+'.md',
-url=base+'&value='+encodeURIComponent(md);
-// Very long entries don't fit in a URL; copy them so they can be pasted on GitHub instead.
-if(url.length>8000){
-if(navigator.clipboard)navigator.clipboard.writeText(md);
-alert('This entry is too long to send through the link. It has been copied to your clipboard; paste it into the GitHub editor that opens next.');
-url=base;
-}
-window.open(url,'_blank','noopener');
+var md='---\n'+(title?'title: '+JSON.stringify(title)+'\n':'')+'modified: '+iso+'\n'
++(paths.length?'images: '+JSON.stringify(paths)+'\n':'')+(sig?'signature: '+JSON.stringify(sig)+'\n':'')+'---\n'+body+'\n';
+files.push({path:'_journal/'+stamp+'.md',blob:new Blob([md])});
+await commit(files,'Add journal entry'+(title?': '+title:''));
+set(KT,tok);k.value='';tokUI();
+t.value=c.value='';set(K,null);clearImgs();
+msg('Posted. It shows up here in about a minute.');
+}catch(e){
+if(e.status==401){set(KT,null);tokUI();msg('GitHub rejected the token. Paste a valid one and try again.')}
+else if(e.status==403||e.status==404)msg("This token can't write to dockingconfirmed/site. Check that it has access to the site repository with Contents: Read and write.");
+else msg('Posting failed: '+e.message);
+}finally{sb.disabled=false}
 };
 })();
 </script>
