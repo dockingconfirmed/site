@@ -8,7 +8,7 @@ nav a{color:var(--t3);text-decoration:none;transition:color .2s}
 nav a:hover,nav a:focus-visible,nav a[aria-current]{color:var(--amber);outline:none}
 nav hr{width:24px;margin:2px 0;border:0;border-top:1px solid var(--line)}
 @media(max-width:1220px){
-nav{top:max(16px,env(safe-area-inset-top));left:16px;transform:none;flex-direction:row;flex-wrap:wrap;gap:6px 18px;max-width:calc(100% - 100px);padding:4px 0}
+nav{top:0;left:0;right:0;width:auto;box-sizing:border-box;transform:none;flex-direction:row;flex-wrap:wrap;gap:6px 18px;max-width:none;padding:calc(max(16px,env(safe-area-inset-top)) + 4px) 100px 12px 16px;background:var(--bg);background:color-mix(in srgb,var(--bg) 82%,transparent);-webkit-backdrop-filter:blur(10px);backdrop-filter:blur(10px)}
 nav hr{display:none}
 body{padding-top:64px!important}
 }

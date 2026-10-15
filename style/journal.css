@@ -89,3 +89,26 @@ article .saved{margin-top:6px;color:var(--amber)}
 html:has(#lb[open]){overflow:hidden}
 @media(max-width:600px){#lb .gs>div{padding:56px 0}}
 .hint code{font:11px ui-monospace,SFMono-Regular,Consolas,monospace;color:var(--t3)}
+
+/* Entry list: a fixed rail beside the column on wide screens, a tab and panel on narrow ones. */
+@media(prefers-reduced-motion:no-preference){html{scroll-behavior:smooth}}
+article{scroll-margin-top:32px}
+#toc{position:fixed;top:50%;left:calc(50% + 360px);width:190px;transform:translateY(-50%);z-index:5;line-height:1.5}
+#tt{display:none}
+#tl{position:relative;max-height:calc(100vh - 160px);overflow-y:auto;scrollbar-width:none}
+#tl::-webkit-scrollbar{display:none}
+#tl .m{margin:16px 0 6px 15px;font-size:11px;letter-spacing:.06em;color:var(--t4)}
+#tl .m:first-child{margin-top:0}
+#tl a{display:block;padding:3px 0 3px 14px;border-left:1px solid var(--line);font-size:13px;letter-spacing:.04em;color:var(--t4);white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+#tl a:hover,#tl a:focus-visible{color:var(--t1)}
+#tl a.on{color:var(--amber);border-left-color:var(--amber)}
+@media(max-width:1220px){
+article{scroll-margin-top:72px}
+#toc{top:50%;right:0;left:auto;width:0;transform:none}
+#tt{display:flex;position:absolute;right:0;top:-24px;width:26px;height:48px;padding:0;align-items:center;justify-content:center;border:1px solid var(--line);border-right:0;border-radius:10px 0 0 10px;background:var(--bg);background:color-mix(in srgb,var(--bg) 85%,transparent);-webkit-backdrop-filter:blur(10px);backdrop-filter:blur(10px);color:var(--t3);cursor:pointer;transition:color .2s}
+#tt:hover,#tt:focus-visible{color:var(--amber);outline:none}
+#tt svg{transition:transform .2s}
+#toc.open #tt svg{transform:rotate(180deg)}
+#tl{display:none;position:absolute;right:34px;top:0;transform:translateY(-50%);box-sizing:border-box;width:min(240px,calc(100vw - 76px));max-height:min(50vh,320px);padding:12px 12px 12px 4px;border:1px solid var(--line);border-radius:12px;background:var(--bg);background:color-mix(in srgb,var(--bg) 88%,transparent);-webkit-backdrop-filter:blur(10px);backdrop-filter:blur(10px);box-shadow:0 8px 24px rgba(0,0,0,.25)}
+#toc.open #tl{display:block}
+}
